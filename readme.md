@@ -1,225 +1,210 @@
-# 📘 Fair Online Resource Allocation with Multi-Attribute Constraints
+# Fair Online Resource Allocation with Multi-Attribute Constraints
 
-## 🚀 Overview
+## Overview
 
-This project focuses on **online resource allocation under fairness constraints** in a **multi-attribute setting**.
+This project explores how resources can be allocated efficiently while maintaining fairness across different groups of jobs.
 
-In real-world systems such as cloud computing platforms and data centers, jobs arrive sequentially and decisions must be made **without knowledge of future arrivals**. The key challenge is to **maximize efficiency (total value)** while ensuring **fairness across different groups**.
+In systems such as cloud platforms and data centers, jobs arrive continuously, and the system has to decide whether to accept or reject each job without knowing what will arrive next. Since resources are limited, accepting every job is not possible.
 
-We implement multiple baseline algorithms and propose an **Adaptive FairAllocator** to achieve a strong balance between fairness and efficiency.
+The main goal of this project is to study the trade-off between maximizing the total value of accepted jobs and ensuring that resources are distributed fairly across different groups.
 
----
+We implemented several existing resource allocation algorithms and developed an **Adaptive FairAllocator** that considers both job value and fairness when making allocation decisions.
 
-## 🎯 Problem Statement
+## Problem Statement
 
-- Jobs arrive **one-by-one (online setting)**
-- Each job has:
-  - **Value** (derived from CPU usage)
-  - **Multiple group labels** (priority, type, size)
-- System has limited capacity **B**
+We consider an online resource allocation problem where jobs arrive one at a time. Each job has a value and belongs to multiple groups based on attributes such as priority, scheduling class, and resource usage.
 
-### Objective:
-- Maximize total value  
-- Maintain fairness across groups  
+The system has a fixed capacity \(B\), which limits the number of jobs that can be accepted.
 
----
+Our objective is to:
 
-## ⚖️ Fairness Metric
+- Maximize the total value of accepted jobs.
+- Maintain reasonable acceptance rates across different groups.
+- Make allocation decisions online, without knowing future job arrivals.
 
-For each group:
+Once a job is accepted or rejected, the decision cannot be changed.
 
-rate(c) = accepted_jobs / total_jobs
+## Fairness Measurement
 
+We measure fairness using the acceptance rate of each group.
 
-### Fairness Gap:
+For a group \(c\):
 
-gap = max(rate) - min(rate)
+\[
+\text{Acceptance Rate}(c) = \frac{\text{Accepted jobs in group }c}{\text{Total jobs in group }c}
+\]
 
+The fairness gap is calculated as:
 
-- Lower gap → better fairness  
-- Higher value → better efficiency  
+\[
+\text{Fairness Gap} = \max_c(\text{Acceptance Rate}(c)) - \min_c(\text{Acceptance Rate}(c))
+\]
 
----
+A smaller fairness gap indicates that the acceptance rates across groups are more balanced.
 
-## 🧠 Algorithms Implemented
+However, improving fairness can sometimes reduce the total value obtained. Our experiments focus on understanding this trade-off.
+
+## Algorithms Implemented
+
+We implemented five allocation algorithms to compare their performance.
 
 ### 1. Greedy
-- Accepts jobs until capacity is full  
-- ❌ Ignores fairness  
 
----
+The Greedy algorithm accepts jobs as they arrive until the available capacity is exhausted.
+
+It is simple to implement but does not consider fairness between groups.
 
 ### 2. D-SETASIDE
-- Uses group quotas  
-- Ensures minimum fairness  
-- ❌ Very strict → low value  
 
----
+D-SETASIDE reserves capacity for different groups using predefined quotas.
+
+This helps maintain fairness, but strict reservations can reduce overall resource utilization and total value.
 
 ### 3. R-SETASIDE
-- Adds randomness after quotas  
-- Accepts with probability = value / threshold  
-- ✔ Better efficiency than D-SETASIDE  
 
----
+R-SETASIDE extends the quota-based approach by introducing randomized acceptance decisions.
+
+After accounting for group quotas, jobs are accepted probabilistically based on their value and a threshold.
+
+This allows the algorithm to make more flexible allocation decisions.
 
 ### 4. Proportional Fairness (PF)
-- Tracks utility per group  
-- Prioritizes under-served groups  
-- ❌ Complex in multi-attribute settings  
 
----
+Proportional Fairness tracks the utility received by different groups and uses it to guide allocation decisions.
 
-### 5. 🔥 Adaptive FairAllocator (Proposed)
+The algorithm attempts to balance overall efficiency with fairness, although handling multiple overlapping group attributes makes the allocation process more complicated.
 
-- Uses **acceptance rate for fairness**
-- Combines value and fairness:
+### 5. Adaptive FairAllocator (Proposed Approach)
 
-score = α * value + (1 - α) * fairness
+We developed an Adaptive FairAllocator that uses both job value and group acceptance rates when deciding whether to accept a job.
 
+The algorithm assigns a score using:
 
-- Uses **dynamic threshold**
-- Estimates **θ (theta) online**
+\[
+\text{Score} = \alpha \times \text{Value} + (1-\alpha) \times \text{Fairness Score}
+\]
 
-✔ Simple  
-✔ Adaptive  
-✔ Interpretable  
+Here, \(\alpha\) controls the importance of job value relative to fairness.
 
----
+The algorithm also estimates a value threshold dynamically based on recently observed jobs.
 
-## ⚙️ Key Concepts
+Unlike approaches that depend entirely on fixed quotas, our method adjusts its decisions according to the jobs observed so far.
 
-### 🔹 Theta (θ)
-- Measures variation in job values
+## Online Estimation of Theta
 
-θ = max(value) / min(value)
+An important parameter in the allocation process is \(\theta\), which represents the variation in job values.
 
+\[
+\theta = \frac{\text{Maximum Job Value}}{\text{Minimum Job Value}}
+\]
 
-- Estimated dynamically using a sliding window  
+Since future job values are unknown, we estimate this parameter using a sliding window of recently observed jobs.
 
----
+This allows the allocator to adapt to changes in the incoming workload.
 
-### 🔹 Online Setting
-- Jobs processed sequentially  
-- No knowledge of future jobs  
-- Decisions are irreversible  
+## Dataset
 
----
+We used a sample of the **Google Cluster workload traces** available on Kaggle.
 
-## 📊 Dataset
+Dataset: https://www.kaggle.com/datasets/derrickmwiti/google-2019-cluster-sample
 
-- Based on **Google Cluster workload traces**
--link -> https://www.kaggle.com/datasets/derrickmwiti/google-2019-cluster-sample
-- Extracted:
-  - CPU usage → job value  
-  - Priority → group  
-  - Scheduling class → group  
+The following attributes were used:
 
-Additional grouping:
-- Small / Large (based on CPU)
+- CPU usage to represent job value.
+- Priority to categorize jobs.
+- Scheduling class as another grouping attribute.
+- CPU-based classification to divide jobs into small and large groups.
 
----
+These attributes allow us to evaluate fairness across multiple job categories.
 
-## 🧪 Experimental Setup
+## Experimental Setup
 
-- Jobs processed sequentially  
-- Multiple runs with shuffled order  
-- Results averaged over runs  
+We evaluated the algorithms by processing jobs sequentially under a fixed resource budget.
 
-### Parameters:
-- Budget (B): configurable  
-- Runs: multiple  
-- Alpha (α): trade-off parameter  
+To study how arrival order affects performance, we repeated the experiments with different shuffled job sequences and averaged the results.
 
----
+The main experimental parameters are:
 
-## 📈 Results Summary
+- **Budget (B):** Maximum number of jobs that can be accepted.
+- **Runs:** Number of times each experiment is repeated.
+- **Alpha (α):** Controls the trade-off between efficiency and fairness.
 
-| Algorithm        | Value | Fairness |
-|-----------------|------|----------|
-| Greedy          | Medium | Poor ❌ |
-| D-SETASIDE      | Low ❌ | Good ✔ |
-| R-SETASIDE      | High ✔ | Moderate |
-| PF              | High | Moderate |
-| Adaptive        | High ✔ | Good ✔ |
+For each algorithm, we measured the total value of accepted jobs and the fairness gap across groups.
 
-👉 **Adaptive FairAllocator achieves best balance between fairness and efficiency**
+## Results and Observations
 
----
+Our experiments compare the algorithms based on total accepted value and fairness gap.
 
-## 📊 Visualizations
+The main observations are:
 
-- Value comparison (bar chart)  
-- Fairness gap comparison  
-- Value vs fairness trade-off  
+| Algorithm | Total Value | Fairness |
+|---|---|---|
+| Greedy | Moderate | Poor |
+| D-SETASIDE | Low | Good |
+| R-SETASIDE | High | Moderate |
+| Proportional Fairness | High | Moderate |
+| Adaptive FairAllocator | High | Good |
 
----
+Greedy focuses on accepting jobs without considering group-level fairness, which can lead to uneven acceptance rates.
 
-## 🧩 Project Structure
+D-SETASIDE maintains better fairness through quotas, but this can come at the cost of lower total value.
 
-project/
-│
-├── src/
-│ ├── algorithms/
-│ │ ├── greedy.py
-│ │ ├── dsetaside.py
-│ │ ├── rsetaside.py
-│ │ ├── pf.py
-│ │ └── adaptive.py
-│ │
-│ ├── allocator.py
-│ ├── fairness.py
-│ ├── theta.py
-│ ├── job.py
-│ └── main.py
-│
-├── data/
-│ └── google_cluster_sample.csv
-│
-└── README.md
+R-SETASIDE and Proportional Fairness provide more flexibility and generally achieve better efficiency.
+
+In our experiments, the Adaptive FairAllocator provided a good balance between total value and fairness compared with the baseline algorithms.
+
+These results are based on the workloads and parameter settings used in our evaluation.
+
+## Visualizations
+
+We generated the following plots to compare the algorithms:
+
+1. Total value obtained by each algorithm.
+2. Fairness gap across different algorithms.
+3. Trade-off between total value and fairness.
+
+These plots help illustrate how different allocation strategies behave under the same workload.
 
 
----
+## How to Run
 
-## ▶️ How to Run
+**1. Install the required libraries**
 
-### 1. Install dependencies
+```bash
 pip install pandas matplotlib
+```
 
+**2. Run the experiment**
 
-### 2. Run the project
+```bash
 python src/main.py
+```
 
+## Team Members
 
----
+- Utkarsh Agarwal
+- Manan Ashokkumar Solanki
+- Arjun Reju
 
-## 👥 Team Members
+## Reference
 
-- Utkarsh Agarwal  
-- Manan Ashokkumar Solanki  
-- Arjun Reju  
+**Fair Online Resource Allocation with Multi-Attribute Constraints**
 
----
+Paper: https://arxiv.org/pdf/2510.21055
 
-## 📄 Reference
+## Future Work
 
-Fair Online Resource Allocation with Multi-Attribute Constraints  
-https://arxiv.org/pdf/2510.21055
+There are several possible extensions to this project:
 
----
+- Dynamically adjusting the value of α based on the observed workload.
+- Extending the allocation model to handle multiple resources, such as CPU and memory.
+- Studying theoretical guarantees for the proposed algorithm.
+- Testing the approach on larger workloads and more realistic resource constraints.
 
-## 🔮 Future Work
+## Conclusion
 
-- Dynamic tuning of α  
-- Multi-resource allocation (CPU + memory)  
-- Theoretical guarantees  
-- Real-world deployment  
+This project helped us explore the challenges of allocating limited resources in an online setting while maintaining fairness across multiple groups.
 
----
+By implementing and comparing different allocation strategies, we observed that improving fairness often involves a trade-off with total accepted value.
 
-## ⭐ Key Takeaway
-
-Balancing fairness and efficiency in online systems is challenging.  
-Adaptive and data-driven approaches provide practical and effective solutions.
-
-
+Our Adaptive FairAllocator attempts to balance these objectives using acceptance rates and dynamically estimated thresholds. The experimental results suggest that this approach can provide a useful balance between fairness and efficiency under the tested conditions.
